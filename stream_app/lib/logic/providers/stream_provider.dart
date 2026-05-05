@@ -1,13 +1,18 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:stream_app/core/locator.dart';
 import 'package:stream_app/data/models/stream/stream_model.dart';
 import 'package:stream_app/data/services/permisson_service.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 import '../repositories/stream_repository.dart';
 
 class LiveStreamProvider extends ChangeNotifier {
   final StreamRepository _repository;
   LiveStreamProvider({required StreamRepository repository})
     : _repository = repository;
+
+  WebSocketChannel? _channel;
 
   // Aktif yayınların listesi
   List<StreamModel> _activeStreams = [];
@@ -28,6 +33,75 @@ class LiveStreamProvider extends ChangeNotifier {
 
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
+
+  /// WebSocket bağlantısını başlatır ve dinlemeye geçer
+  void connectWebSocket() {
+    // Eğer zaten bağlıysa tekrar bağlanma
+    if (_channel != null) return;
+
+    try {
+      // Kendi lokal IP adresini buraya yaz (Örn: 192.168.1.107)
+      // TODO: ileride burası constant olarak ayarlanmalı (url)
+      final wsUrl = Uri.parse('ws://192.168.1.107:8000/api/websocket/streams');
+      _channel = WebSocketChannel.connect(wsUrl);
+
+      debugPrint("🔌 WebSocket bağlantısı kuruluyor...");
+
+      _channel!.stream.listen(
+        (message) {
+          debugPrint("📡 [WebSocket Mesajı]: $message");
+          final data = jsonDecode(message);
+
+          if (data['type'] == 'NEW_STREAM_STARTED') {
+            // Yeni yayın başladıysa listeyi baştan çek (En garantili yöntem)
+            debugPrint("🟢 Yeni yayın tespit edildi, liste yenileniyor!");
+            fetchActiveStreams(isRefresh: true);
+          } else if (data['type'] == 'STREAM_ENDED') {
+            // Yayın bittiyse sadece o yayını listeden silip UI'ı güncelle
+            final roomName = data['room_name'];
+            debugPrint("🔴 Yayın bitti: $roomName. Listeden çıkarılıyor.");
+            _activeStreams.removeWhere((s) => s.roomName == roomName);
+            notifyListeners();
+
+            // 2. EĞER izleyici şu an bu yayının içindeyse bir sinyal gönder
+            if (_currentConnection?.stream.roomName == roomName) {
+              // İzleyiciyi dışarı atmak için bir hata mesajı set edebiliriz
+              _errorMessage = "This stream has ended by the host.";
+              _currentConnection = null; // Bağlantı verisini temizle
+              notifyListeners();
+            }
+          }
+        },
+        onError: (error) {
+          debugPrint("❌ WebSocket Hatası: $error");
+          _channel = null;
+        },
+        onDone: () {
+          debugPrint("🛑 WebSocket Bağlantısı Koptu.");
+          _channel = null;
+          // İleride buraya "otomatik yeniden bağlanma" (reconnect) mantığı eklenebilir
+        },
+      );
+    } catch (e) {
+      debugPrint("WebSocket Kurulum Hatası: $e");
+    }
+  }
+
+  /// WebSocket bağlantısını manuel olarak kapatır
+  void disconnectWebSocket() {
+    if (_channel != null) {
+      _channel!.sink.close();
+      _channel = null;
+      debugPrint("🛑 WebSocket manuel olarak kapatıldı.");
+    }
+  }
+
+  /// Provider hafızadan silinirken sızıntı (memory leak) olmasın diye bağlantıyı kesiyoruz
+  @override
+  void dispose() {
+    disconnectWebSocket();
+    super.dispose();
+  }
 
   /// Aktif yayınları sayfalama (pagination) ile çeker
   Future<void> fetchActiveStreams({bool isRefresh = false}) async {
@@ -54,9 +128,11 @@ class LiveStreamProvider extends ChangeNotifier {
         debugPrint("Stream Fetch Error: ${failure.message}");
       },
       (newStreams) {
-        debugPrint("LiveStreamProvider: Fetched ${newStreams.length} active streams.");
+        debugPrint(
+          "LiveStreamProvider: Fetched ${newStreams.length} active streams.",
+        );
         if (newStreams.length < _limit) _hasMoreData = false;
-        
+
         for (var newStream in newStreams) {
           // Eğer id zaten listede varsa ekleme (Duplikasyon önleme)
           bool exists = _activeStreams.any((s) => s.id == newStream.id);

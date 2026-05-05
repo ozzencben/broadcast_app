@@ -5,38 +5,53 @@ import 'package:stream_app/views/screens/stream/streaming_screen.dart';
 import 'package:stream_app/views/screens/stream/streaming_screen_for_visitor.dart';
 import '../../logic/providers/user_provider.dart';
 
-
 class StreamWrapper extends StatelessWidget {
-  final String roomName; // Odayı her zaman dışarıdan alıyoruz
+  final String roomName;
 
   const StreamWrapper({super.key, required this.roomName});
 
   @override
   Widget build(BuildContext context) {
-    // Auth yerine kendi projendeki UserProvider'ı kullanıyoruz (Profil ekranında öyle yapmıştın)
     final userProvider = context.watch<UserProvider>();
     final streamProvider = context.watch<LiveStreamProvider>();
 
     final user = userProvider.user;
     final currentStream = streamProvider.currentConnection?.stream;
 
-    // 1. Kullanıcı veya Yayın verisi henüz gelmediyse yükleniyor göster
-    if (user == null || currentStream == null) {
+    // 1. Kullanıcı verisi henüz yüklenmediyse bekle
+    if (user == null) {
       return const Scaffold(
         backgroundColor: Colors.black,
         body: Center(child: CircularProgressIndicator(color: Colors.white)),
       );
     }
 
-    // 2. KRİTİK KONTROL: Bu yayının sahibi ben miyim?
-    // Kullanıcı ID'si ile yayını başlatanın ID'si aynıysa, yayıncı benim demektir.
+    // 2. WEBSOCKET MÜDAHALESİ: Eğer yayın verisi null olduysa (Yayın bittiyse)
+    if (currentStream == null) {
+      // Çizim işlemi biter bitmez kullanıcıyı önceki sayfaya (Explore) geri şutluyoruz.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (Navigator.canPop(context)) {
+          // İstersen burada bir SnackBar da gösterebiliriz
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Yayıncı yayını sonlandırdı.'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+          Navigator.pop(context);
+        }
+      });
+
+      // Çıkış yapılana kadar siyah bir ekran göster (Hata almamak için)
+      return const Scaffold(backgroundColor: Colors.black);
+    }
+
+    // 3. KRİTİK KONTROL: Bu yayının sahibi ben miyim?
     final isMyStream = currentStream.streamerId == user.id;
 
     if (isMyStream) {
-      // Yayıncı ekranına git
       return StreamingScreen(roomName: roomName);
     } else {
-      // İzleyici ekranına git
       return StreamingScreenForVisitor(roomName: roomName);
     }
   }

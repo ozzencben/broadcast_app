@@ -2,11 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stream_app/core/theme.dart';
 import 'package:stream_app/logic/providers/stream_provider.dart';
+// İleride LiveKit'i bağladığında bu import aktif olacak
+// import 'package:livekit_client/livekit_client.dart';
 
 class StreamingScreenForVisitor extends StatefulWidget {
   final String roomName;
+  // İleride LiveKit Room objesini buraya parametre olarak geçebilirsin
+  // final Room room;
 
-  const StreamingScreenForVisitor({super.key, required this.roomName});
+  const StreamingScreenForVisitor({
+    super.key,
+    required this.roomName,
+    // required this.room,
+  });
 
   @override
   State<StreamingScreenForVisitor> createState() =>
@@ -14,10 +22,58 @@ class StreamingScreenForVisitor extends StatefulWidget {
 }
 
 class _StreamingScreenForVisitorState extends State<StreamingScreenForVisitor> {
+  // LiveKit dinleyicisi için değişken
+  // EventsListener<RoomEvent>? _listener;
+
+  @override
+  void initState() {
+    super.initState();
+    // LiveKit odası teknik bir sorundan kapanırsa tetiklenecek dinleyici
+    // _setupRoomListeners(widget.room);
+  }
+
+  @override
+  void dispose() {
+    // Hafıza sızıntısını önlemek için dinleyiciyi kapatıyoruz
+    // _listener?.dispose();
+    super.dispose();
+  }
+
+  /* --- LİVEKİT DİNLEYİCİSİ (Hazırlık) --- */
+  /*
+  void _setupRoomListeners(Room room) {
+    _listener = room.createListener();
+
+    _listener!.on<RoomDisconnectedEvent>((event) {
+      if (mounted) {
+        debugPrint("LiveKit: Oda kapandı. İzleyici atılıyor.");
+        // Wrapper zaten atmadıysa biz atalım
+        if (Navigator.canPop(context)) Navigator.pop(context);
+      }
+    });
+  }
+  */
+
+  void _leaveStream(BuildContext context) {
+    // İzleyici kendi isteğiyle çıkarsa
+    // TODO: widget.room.disconnect();
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final streamProvider = context.watch<LiveStreamProvider>();
-    final currentStream = streamProvider.currentConnection?.stream;
+    // StreamWrapper zaten null kontrolü yaptığı için burada verinin dolu olduğundan eminiz.
+    // Ancak build asenkron çalışabildiği için minik bir null-safety ekliyoruz.
+    final currentStream = context
+        .watch<LiveStreamProvider>()
+        .currentConnection
+        ?.stream;
+
+    if (currentStream == null) {
+      return const Scaffold(backgroundColor: Colors.black);
+    }
 
     return Scaffold(
       backgroundColor: AppTheme.darkBackground,
@@ -71,6 +127,7 @@ class _StreamingScreenForVisitorState extends State<StreamingScreenForVisitor> {
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
+                        color: Colors.white,
                       ),
                     ),
                   ),
@@ -94,7 +151,7 @@ class _StreamingScreenForVisitorState extends State<StreamingScreenForVisitor> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          "${currentStream?.viewerCount ?? 0}",
+                          "${currentStream.viewerCount ?? 0}",
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
@@ -105,7 +162,7 @@ class _StreamingScreenForVisitorState extends State<StreamingScreenForVisitor> {
                     ),
                   ),
                   const Spacer(),
-                  // Odadan Çıkış Butonu (Yayını bitirmez, sadece izleyiciyi çıkartır)
+                  // Odadan Çıkış Butonu
                   IconButton(
                     onPressed: () => _leaveStream(context),
                     icon: const Icon(
@@ -119,14 +176,13 @@ class _StreamingScreenForVisitorState extends State<StreamingScreenForVisitor> {
             ),
           ),
 
-          // 3. BOTTOM OVERLAY (Viewer Controls - Chat placeholder)
+          // 3. BOTTOM OVERLAY (Viewer Controls)
           Positioned(
             bottom: 40,
             left: 20,
             right: 20,
             child: Row(
               children: [
-                // Gelecekte Chat input alanı buraya gelecek
                 Expanded(
                   child: Container(
                     padding: const EdgeInsets.symmetric(
@@ -144,7 +200,6 @@ class _StreamingScreenForVisitorState extends State<StreamingScreenForVisitor> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                // Hediye / Beğeni Butonu (Mock)
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
@@ -163,10 +218,5 @@ class _StreamingScreenForVisitorState extends State<StreamingScreenForVisitor> {
         ],
       ),
     );
-  }
-
-  void _leaveStream(BuildContext context) {
-    // TODO: LiveKit odasından disconnect olma işlemi eklenecek
-    Navigator.pop(context); // Şimdilik sadece sayfadan çıkıyoruz
   }
 }

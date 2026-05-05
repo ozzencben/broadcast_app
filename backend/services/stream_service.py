@@ -8,6 +8,7 @@ from loguru import logger
 from sqlalchemy.orm import selectinload
 
 from core.config import settings
+from core.websocket_manager import manager
 from repositories.stream import StreamRepository
 
 class StreamService:
@@ -70,6 +71,12 @@ class StreamService:
             identity=user.id,
             is_publisher=True
         )
+
+        await manager.broadcast({
+            "type":"NEW_STREAM_STARTED",
+            "title": stream_in.title,
+            "streamer": user.username
+        })
         
         return stream, token
 
@@ -97,6 +104,12 @@ class StreamService:
             raise ValueError("You are not authorized to end this stream.")
             
         await self.repo.end_stream(room_name)
+
+        await manager.broadcast({
+            "type":"STREAM_ENDED",
+            "room_name": room_name,
+        })
+        
         return True
 
     async def handle_webhook_event(self, event):
@@ -109,6 +122,10 @@ class StreamService:
         if event.event == "room_finished":
             logger.info(f"Yayın bitti (Otonom): {room_name}")
             await self.repo.end_stream(room_name)
+            await manager.broadcast({
+                "type": "STREAM_ENDED",
+                "room_name": room_name,
+            })
             
         elif event.event == "participant_joined":
             # İleride izleyici sayısını artırmak için burayı kullanacağız

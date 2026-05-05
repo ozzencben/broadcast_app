@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:stream_app/core/locator.dart';
 import 'package:stream_app/data/services/device_info_service.dart';
+import 'package:stream_app/logic/providers/stream_provider.dart';
 import 'package:stream_app/logic/repositories/auth_repository_impl.dart';
 import 'package:stream_app/logic/repositories/user_repository_impl.dart';
 import '../../data/models/auth/auth_request_model.dart';
@@ -124,6 +126,13 @@ class AuthProvider extends ChangeNotifier {
   void logout() async {
     _currentUser = null;
     await _secureStorage.deleteAll();
+
+    try {
+      locator<LiveStreamProvider>().disconnectWebSocket();
+    } catch (e) {
+      debugPrint("Logout sırasında WebSocket kapatılamadı: $e");
+    }
+
     notifyListeners();
   }
 

@@ -12,6 +12,7 @@ from api.v1.endpoints.admin import admin_router
 from api.v1.endpoints.notifications import router as notifications_router
 from api.v1.endpoints.stream import router as stream_router
 from api.v1.endpoints.webhooks import router as webhooks_router
+from api.v1.endpoints.websocket import router as websocket_router
 
 from core.config import settings
 from core.lifespan import lifespan
@@ -48,6 +49,7 @@ app.include_router(admin_router, prefix="/api")
 app.include_router(notifications_router, prefix="/api")
 app.include_router(stream_router, prefix="/api")
 app.include_router(webhooks_router, prefix="/api")
+app.include_router(websocket_router, prefix="/api")
 
 
 @app.get("/health", tags=["health"])

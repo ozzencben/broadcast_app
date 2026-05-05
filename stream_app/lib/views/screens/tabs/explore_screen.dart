@@ -28,8 +28,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
     // Ekran ilk açıldığında aktif yayınları backend'den çekiyoruz
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final streamProvider = context.read<LiveStreamProvider>();
+      streamProvider.connectWebSocket();
       streamProvider.fetchActiveStreams(isRefresh: true);
-      
+
       // Hata dinleyici ekleyelim
       streamProvider.addListener(_onStreamProviderError);
     });
@@ -147,7 +148,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Widget _buildSearchBar(ThemeData theme) {
-    // (Senin mevcut kodunla aynı, burayı değiştirmedim)
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -189,11 +189,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
-  // YENİ: AKTİF YAYINLAR LİSTESİ (Feed)
+  // 1. GÜNCEL FEED METODU
   Widget _buildLiveStreamsFeed(ThemeData theme) {
     return Consumer<LiveStreamProvider>(
       builder: (context, provider, child) {
-        // Hata ayıklama için:
+        // Hata ayıklama logun harika, aynen kalsın
         debugPrint(
           "ExploreScreen: Active Streams Count: ${provider.activeStreams.length}, Loading: ${provider.isLoading}",
         );
@@ -202,28 +202,75 @@ class _ExploreScreenState extends State<ExploreScreen> {
           return const Center(child: CircularProgressIndicator());
         }
 
-        if (provider.activeStreams.isEmpty) {
-          return _buildEmptyState(theme);
-        }
-
+        // RefreshIndicator'ı EN DIŞA alıyoruz ki boşken de dolsun
         return RefreshIndicator(
           onRefresh: () => provider.fetchActiveStreams(isRefresh: true),
-          child: ListView.separated(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-            ),
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: BouncingScrollPhysics(),
-            ),
-            itemCount: provider.activeStreams.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 16),
-            itemBuilder: (context, index) {
-              final stream = provider.activeStreams[index];
-              return _buildStreamCard(theme, stream);
-            },
-          ),
+          child: provider.activeStreams.isEmpty
+              // EĞER LİSTE BOŞSA: Kaydırılabilir (Pull-to-refresh) Empty State
+              ? CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _buildEmptyStateContent(theme),
+                    ),
+                  ],
+                )
+              // EĞER LİSTE DOLUYSA: Senin mevcut ListView'ın
+              : ListView.separated(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                  ),
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  itemCount: provider.activeStreams.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 16),
+                  itemBuilder: (context, index) {
+                    final stream = provider.activeStreams[index];
+                    return _buildStreamCard(theme, stream);
+                  },
+                ),
         );
       },
+    );
+  }
+
+  // 2. GÜNCEL BOŞ DURUM (Empty State) METODU
+  // Not: Artık SingleChildScrollView'a ihtiyacı yok, CustomScrollView onu hallediyor.
+  Widget _buildEmptyStateContent(ThemeData theme) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppTheme.accentPurple.withValues(alpha: 0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            Icons.travel_explore_rounded,
+            size: 64,
+            color: AppTheme.accentPurple.withValues(alpha: 0.5),
+          ),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          'No active streams right now',
+          style: theme.textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Search for users to view their profiles\nor start your own stream!',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: Colors.grey.shade600,
+          ),
+        ),
+      ],
     );
   }
 
@@ -357,7 +404,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          'By ${stream.streamer?.username ?? 'Unknown'}', 
+                          'By ${stream.streamer?.username ?? 'Unknown'}',
                           style: const TextStyle(
                             color: Colors.white70,
                             fontSize: 13,
