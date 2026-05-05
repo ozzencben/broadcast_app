@@ -19,32 +19,34 @@ FROM python:3.12-slim-bookworm
 
 WORKDIR /app
 
-# Security: Non-root user tanımlama
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+# Security: Non-root user tanımlama ve dizin hazırlığı
+RUN groupadd -r appuser && useradd -r -g appuser appuser \
+    && mkdir -p /app/logs \
+    && chown -R appuser:appuser /app
 
-# Runtime için gerekli sistem bağımlılıkları (Opsiyonel: curl healthcheck için)
+# Runtime için gerekli sistem bağımlılıkları
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Builder aşamasında oluşturulan .venv'i kopyala
-COPY --from=builder /app/.venv /app/.venv
-COPY . .
+# Builder aşamasında oluşturulan .venv'i kopyala (Sahiplikle birlikte)
+COPY --from=builder --chown=appuser:appuser /app/.venv /app/.venv
+
+# Proje dosyalarını kopyala (Sahiplikle birlikte)
+COPY --chown=appuser:appuser . .
 
 # Environment setup
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-# Ownership devri
-RUN chown -R appuser:appuser /app
 USER appuser
 
-# Healthcheck: Konteynerın "live" olup olmadığını kontrol eder
+# Healthcheck
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 EXPOSE 8000
 
-# Gunicorn/Uvicorn worker yönetimi (Production'da worker sayısını belirlemek kritiktir)
+# Start command
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]

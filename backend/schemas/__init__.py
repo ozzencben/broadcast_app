@@ -4,6 +4,7 @@ from .notification import (
     NotificationRead,
     NotificationType
 )
+from .stream import StreamCreate, StreamResponse
 
 __all__ = [
     "UserCreate",
@@ -13,4 +14,6 @@ __all__ = [
     "NotificationCreate",
     "NotificationRead",
     "NotificationType"
+    "StreamCreate"
+    "StreamResponse"
 ]

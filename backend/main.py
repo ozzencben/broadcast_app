@@ -10,6 +10,8 @@ from api.v1.endpoints.auth import auth_router
 from api.v1.endpoints.user import user_router
 from api.v1.endpoints.admin import admin_router
 from api.v1.endpoints.notifications import router as notifications_router
+from api.v1.endpoints.stream import router as stream_router
+from api.v1.endpoints.webhooks import router as webhooks_router
 
 from core.config import settings
 from core.lifespan import lifespan
@@ -43,7 +45,9 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/api")
 app.include_router(user_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
-app.include_router(notifications_router, prefix="/api/notifications", tags=["notifications"])
+app.include_router(notifications_router, prefix="/api")
+app.include_router(stream_router, prefix="/api")
+app.include_router(webhooks_router, prefix="/api")
 
 
 @app.get("/health", tags=["health"])

@@ -1,0 +1,14 @@
+port: 7880
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 50050
+  use_external_ip: true
+
+keys:
+  devkey_stream_app_2026_ozenc: secretkey_32_chars_long_minimum_123456
+
+webhook:
+  api_key: devkey_stream_app_2026_ozenc
+  urls:
+    - http://api:8000/api/webhooks/livekit

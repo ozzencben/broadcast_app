@@ -1,6 +1,6 @@
 from enum import Enum
 from datetime import date
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from sqlalchemy import (
     String,
     Boolean,
@@ -19,6 +19,9 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship, deferred
 
 from models.base_model import AbstractBase
+
+if TYPE_CHECKING:
+    from models.stream import Stream
 
 
 follows = Table(
@@ -102,6 +105,8 @@ class User(AbstractBase):
         back_populates="followed_streamers",
         overlaps="followed_streamers",
     )
+
+    streams: Mapped[list["Stream"]] = relationship("Stream", back_populates="streamer")
 
     @property
     def followers_count(self) -> int:

@@ -4,7 +4,9 @@ Includes error handling and HTTP exception responses.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
+from loguru import logger
 
 from database import get_session
 from schemas.user import UserCreate, UserLogin, TokenResponse
@@ -58,27 +60,20 @@ async def register(
 
 @auth_router.post("/login", response_model=TokenResponse)
 async def login(
-    user_data: UserLogin,
+    # user_data: UserLogin yerine bunu kullanıyoruz:
+    form_data: OAuth2PasswordRequestForm = Depends(), 
     session: AsyncSession = Depends(get_session),
 ) -> TokenResponse:
     """
     Authenticate user and return access token.
-
-    Args:
-        user_data: UserLogin schema with email and password
-        session: Async database session (injected)
-
-    Returns:
-        TokenResponse with access token and user data
-
-    Raises:
-        HTTPException 401: Invalid credentials
-        HTTPException 500: Internal server error
+    OAuth2 standartlarına uygun olarak Form Data kabul eder.
     """
     try:
         auth_service = AuthService(session)
+        # OAuth2PasswordRequestForm'da 'username' alanı kullanılır. 
+        # Biz bunu email olarak AuthService'e paslıyoruz.
         token_response = await auth_service.login_user(
-            user_data.email, user_data.password
+            form_data.username, form_data.password
         )
         return token_response
 
@@ -89,6 +84,7 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
     except Exception as e:
+        logger.error(f"Login error: {e}") # Loglama eklemek iyidir
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",

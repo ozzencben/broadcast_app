@@ -25,13 +25,13 @@ services:
   redis:
     image: redis:7-alpine
     container_name: stream_redis
-    command: redis-server --appendonly yes  # Veri kaybını önlemek için AOF açık
+    command: redis-server --appendonly yes # Veri kaybını önlemek için AOF açık
     ports:
       - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -51,12 +51,30 @@ services:
     networks:
       - stream_network
 
+  livekit:
+    image: livekit/livekit-server:latest
+    command: --config /livekit.yaml
+    volumes:
+      - ./backend/livekit.yaml:/livekit.yaml:ro
+    environment:
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+      LIVEKIT_URL: ${LIVEKIT_URL}
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "50000-50050:50000-50050/udp"
+    restart: always
+    networks:
+      - stream_network
+
   # FastAPI Backend Service
   api:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: stream_api
+    command: gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app --bind 0.0.0.0:8000
     env_file:
       - .env
     environment:

@@ -66,5 +66,13 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	
+	<key>NSCameraUsageDescription</key>
+	<string>Uygulamamızın canlı yayın yapabilmesi için kamera iznine ihtiyacımız var.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Yayın yaparken sesinizi duyurabilmek için mikrofon izni gereklidir.</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Uygulama işlevselliği için gereklidir.</string>
+
 </dict>
 </plist>

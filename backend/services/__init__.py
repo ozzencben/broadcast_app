@@ -4,6 +4,7 @@ from .cloudinary_service import CloudinaryService
 from .notifications import NotificationService
 from .notification_dispatcher import NotificationDispatcher
 from .user import UserService
+from .stream_service import StreamService
 
 __all__ = [
     "AuthService", 
@@ -11,5 +12,6 @@ __all__ = [
     "CloudinaryService", 
     "NotificationService", 
     "NotificationDispatcher", 
-    "UserService"
+    "UserService",
+    "StreamService"
 ]

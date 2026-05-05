@@ -7,7 +7,7 @@ from models import User
 from schemas.notification import NotificationRead
 from services.notifications import NotificationService
 
-router = APIRouter()
+router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 @router.get("/", response_model=List[NotificationRead])
 async def get_notifications(

@@ -63,6 +63,11 @@ class Settings(BaseSettings):
     # Firebase Settings
     FIREBASE_CREDENTIALS_PATH: str = Field(default="firebase-credentials.json")
 
+    # LiveKit Settings
+    LIVEKIT_API_KEY: str
+    LIVEKIT_API_SECRET: str
+    LIVEKIT_URL: str
+
     model_config = ConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

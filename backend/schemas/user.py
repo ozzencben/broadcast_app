@@ -50,6 +50,29 @@ class UserLogin(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class UserBasic(UserBase):
+    """
+    Basic user schema for lists to prevent MissingGreenlet errors.
+    Does not include relationship-based properties like followers_count.
+    """
+    id: int
+    username: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    gender: Gender
+    birth_date: Optional[date] = None
+    bio: Optional[str] = None
+    profile_image_url: Optional[str] = None
+    is_active: bool
+    is_admin: bool
+    is_streamer: bool
+    is_verified_streamer: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class UserRead(UserBase):
     """
     Schema for reading user data with all profile details.
