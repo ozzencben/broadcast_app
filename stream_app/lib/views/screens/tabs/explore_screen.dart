@@ -7,6 +7,7 @@ import 'package:stream_app/data/models/user/user_model.dart';
 import 'package:stream_app/logic/providers/auth_provider.dart';
 import 'package:stream_app/logic/providers/stream_provider.dart';
 import 'package:stream_app/logic/providers/user_provider.dart';
+import 'package:stream_app/logic/wrappers/other_profile_wrapper_for_admin.dart';
 import 'package:stream_app/logic/wrappers/stream_wrapper.dart';
 import 'package:stream_app/views/widgets/grid_painter.dart';
 
@@ -127,7 +128,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 _buildSearchBar(theme),
                 const SizedBox(height: 24),
 
-                // DEĞİŞİKLİK BURADA: Arama boşsa yayınları göster, doluysa kullanıcıları
+                // Arama boşsa yayınları göster, doluysa streamer listesini
                 Expanded(
                   child: _searchQuery.isEmpty
                       ? _buildLiveStreamsFeed(theme)
@@ -159,7 +160,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
         onChanged: _onSearchChanged,
         textInputAction: TextInputAction.search,
         decoration: InputDecoration(
-          hintText: 'Search users or streamers...',
+          hintText:
+              'Search streamers...', // Sadece yayıncıları aradığımızı belirttik
           hintStyle: theme.textTheme.bodyMedium?.copyWith(
             color: Colors.grey.shade400,
           ),
@@ -183,24 +185,17 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
-  // 1. GÜNCEL FEED METODU
+  // 1. CANLI YAYINLAR FEED'İ
   Widget _buildLiveStreamsFeed(ThemeData theme) {
     return Consumer<LiveStreamProvider>(
       builder: (context, provider, child) {
-        // Hata ayıklama logun harika, aynen kalsın
-        debugPrint(
-          "ExploreScreen: Active Streams Count: ${provider.activeStreams.length}, Loading: ${provider.isLoading}",
-        );
-
         if (provider.isLoading && provider.activeStreams.isEmpty) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        // RefreshIndicator'ı EN DIŞA alıyoruz ki boşken de dolsun
         return RefreshIndicator(
           onRefresh: () => provider.fetchActiveStreams(isRefresh: true),
           child: provider.activeStreams.isEmpty
-              // EĞER LİSTE BOŞSA: Kaydırılabilir (Pull-to-refresh) Empty State
               ? CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
@@ -210,7 +205,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     ),
                   ],
                 )
-              // EĞER LİSTE DOLUYSA: Senin mevcut ListView'ın
               : ListView.separated(
                   padding: EdgeInsets.only(
                     bottom: MediaQuery.of(context).viewInsets.bottom + 20,
@@ -231,8 +225,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
-  // 2. GÜNCEL BOŞ DURUM (Empty State) METODU
-  // Not: Artık SingleChildScrollView'a ihtiyacı yok, CustomScrollView onu hallediyor.
+  // YAYIN YOKSA GÖSTERİLECEK DURUM
   Widget _buildEmptyStateContent(ThemeData theme) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -268,19 +261,17 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
-  // YENİ: YAYIN KARTI TASARIMI
+  // YAYIN KARTI TASARIMI
   Widget _buildStreamCard(ThemeData theme, StreamModel stream) {
     return InkWell(
       onTap: () => _handleJoinStream(stream.roomName),
       borderRadius: BorderRadius.circular(20),
       child: Container(
-        height:
-            200, // Şimdilik sabit yükseklik, ileride aspect ratio yapılabilir
+        height: 200,
         decoration: BoxDecoration(
           color: Colors.black87,
           borderRadius: BorderRadius.circular(20),
           image: const DecorationImage(
-            // Görüntü gelene kadar mock bir arkaplan
             image: NetworkImage(
               'https://images.unsplash.com/photo-1542204165-65bf26472b9b?q=80&w=1000',
             ),
@@ -297,7 +288,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
         ),
         child: Stack(
           children: [
-            // ÜST KISIM: CANLI Rozeti ve İzleyici Sayısı
             Positioned(
               top: 12,
               left: 12,
@@ -354,8 +344,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 ],
               ),
             ),
-
-            // ALT KISIM: Yayın Başlığı ve Yayıncı Bilgisi
             Positioned(
               bottom: 0,
               left: 0,
@@ -416,59 +404,30 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
-  // (Senin _buildEmptyState ve _buildRealUserList kodların aynı şekilde duruyor)
-  Widget _buildEmptyState(ThemeData theme) {
-    // ... senin yazdığın ikonlu empty state kodları ...
-    return Center(
-      child: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: AppTheme.accentPurple.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.travel_explore_rounded,
-                size: 64,
-                color: AppTheme.accentPurple.withValues(alpha: 0.5),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'No active streams right now',
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Search for users to view their profiles\nor start your own stream!',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: Colors.grey.shade600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
+  // 2. ARAMA SONUÇLARI (Sadece Streamer Olanlar)
   Widget _buildRealUserList(ThemeData theme) {
-    // ... senin kodunun birebir aynısı ...
     return Consumer<UserProvider>(
       builder: (context, provider, child) {
         if (provider.isLoading) {
           return const Center(child: CircularProgressIndicator());
         }
-        final users = provider.searchResults;
+
+        // Gelen sonuçlardan sadece Streamer olanları ve Admin olmayanları filtreliyoruz
+        final users = provider.searchResults
+            .where((u) => u.isStreamer && !u.isAdmin)
+            .toList();
+
         if (users.isEmpty && _searchQuery.isNotEmpty) {
-          return Center(child: Text('No users found for "$_searchQuery"'));
+          return Center(
+            child: Text(
+              'No streamers found for "$_searchQuery"',
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: Colors.grey.shade600,
+              ),
+            ),
+          );
         }
+
         return ListView.separated(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom + 20,
@@ -484,80 +443,91 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
+  // ARAMA KARTI (Profil Yönlendirmeli)
   Widget _buildUserCard(ThemeData theme, UserModel user) {
     final authProvider = context.read<AuthProvider>();
     final isMe = authProvider.currentUser?.id == user.id;
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: theme.primaryColor.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundImage: user.profileImageUrl != null
-                ? NetworkImage(user.profileImageUrl!)
-                : null,
-            child: user.profileImageUrl == null
-                ? const Icon(Icons.person)
-                : null,
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  user.username,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  '${user.followersCount} followers',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-              ],
+    return InkWell(
+      onTap: () {
+        if (!isMe) {
+          FocusScope.of(context).unfocus(); // Klavyeyi kapat
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => OtherProfileWrapper(user: user)),
+          );
+        }
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: theme.primaryColor.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
-          ),
-          if (!isMe)
-            ElevatedButton(
-              onPressed: () {
-                final provider = context.read<UserProvider>();
-                if (user.isFollowing) {
-                  provider.unfollowStreamer(user.id);
-                } else {
-                  provider.followStreamer(user.id);
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: user.isFollowing
-                    ? Colors.grey.shade200
-                    : theme.primaryColor,
-                foregroundColor: user.isFollowing
-                    ? Colors.black87
-                    : Colors.white,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+          ],
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 24,
+              backgroundImage: user.profileImageUrl != null
+                  ? NetworkImage(user.profileImageUrl!)
+                  : null,
+              child: user.profileImageUrl == null
+                  ? const Icon(Icons.person)
+                  : null,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    user.username,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    '${user.followersCount} followers',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
               ),
-              child: Text(user.isFollowing ? 'Following' : 'Follow'),
             ),
-        ],
+            // Takip ediliyorsa etiket, edilmiyorsa yönlendirme oku göster
+            if (!isMe)
+              if (user.isFollowing)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.primaryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Following',
+                    style: TextStyle(
+                      color: theme.primaryColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                )
+              else
+                Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400),
+          ],
+        ),
       ),
     );
   }

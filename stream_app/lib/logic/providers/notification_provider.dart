@@ -1,7 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:stream_app/core/constants.dart';
+import 'package:stream_app/core/locator.dart';
+import 'package:stream_app/logic/providers/user_provider.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../../data/models/notification/notification_model.dart';
 import '../repositories/notification_repository.dart';
@@ -29,9 +31,9 @@ class NotificationProvider extends ChangeNotifier {
   // --- WEBSOCKET DEĞİŞKENLERİ ---
   WebSocketChannel? _channel;
   bool _isConnected = false;
+
   // Kendi backend IP/URL'ini buraya yaz
-  final String _wsBaseUrl =
-      "ws://192.168.1.107:8000/api/websocket/notifications";
+  final String _wsBaseUrl = ApiConstants.wsBaseUrl;
 
   Future<void> fetchHistory({bool isRefresh = false}) async {
     if (isRefresh) {
@@ -90,49 +92,79 @@ class NotificationProvider extends ChangeNotifier {
   void connectWebSocket(int userId) {
     if (_isConnected) return;
 
-    final wsUrl = Uri.parse("$_wsBaseUrl/$userId");
-    _channel = WebSocketChannel.connect(wsUrl);
-    _isConnected = true;
+    try {
+      final wsUrl = Uri.parse("$_wsBaseUrl/$userId");
+      _channel = WebSocketChannel.connect(wsUrl);
+      _isConnected = true;
 
-    debugPrint("🔔 WebSocket Bildirim Kanalına Bağlanıldı (User: $userId)");
+      debugPrint("🔔 WebSocket Bildirim Kanalına Bağlanıldı (User: $userId)");
 
-    _channel!.stream.listen(
-      (message) {
-        _handleLiveNotification(message);
-      },
-      onError: (error) {
-        debugPrint("❌ WebSocket Bildirim Hatası: $error");
-        _isConnected = false;
-        _reconnectWebSocket(userId);
-      },
-      onDone: () {
-        debugPrint("🛑 WebSocket Bildirim Kanalı Kapandı.");
-        _isConnected = false;
-      },
-    );
+      _channel!.stream.listen(
+        (message) {
+          _handleLiveNotification(message);
+        },
+        onError: (error) {
+          debugPrint("❌ WebSocket Bildirim Hatası: $error");
+          _isConnected = false;
+          _reconnectWebSocket(userId);
+        },
+        onDone: () {
+          debugPrint("🛑 WebSocket Bildirim Kanalı Kapandı.");
+          _isConnected = false;
+        },
+      );
+
+      // Heartbeat başlat
+      _startHeartbeat();
+    } catch (e) {
+      debugPrint("❌ WebSocket Bağlantı Hatası: $e");
+      _isConnected = false;
+      _reconnectWebSocket(userId);
+    }
+  }
+
+  void _startHeartbeat() {
+    Future.doWhile(() async {
+      await Future.delayed(const Duration(seconds: 30));
+      if (_isConnected && _channel != null) {
+        try {
+          _channel!.sink.add("ping");
+          return true;
+        } catch (e) {
+          debugPrint("❌ Heartbeat Hatası: $e");
+          return false;
+        }
+      }
+      return false;
+    });
   }
 
   /// WEBSOCKET'TEN GELEN ANLIK MESAJI İŞLE VE LİSTEYE EKLE
   void _handleLiveNotification(dynamic message) {
+    if (message == "pong" || message == "ping") return;
     try {
       final decodedData = jsonDecode(message);
+      debugPrint("🔔 WS Mesajı Geldi: $decodedData");
 
       if (decodedData['type'] == 'NEW_NOTIFICATION') {
         final data = decodedData['data'];
 
-        // Backend'den eklediğimiz GERÇEK ID'yi alıyoruz (Sahte ID tuzağını çözdük)
+        // Backend'den eklediğimiz GERÇEK ID'yi alıyoruz
         final realId = data['id'] != null
             ? int.tryParse(data['id'].toString()) ?? 0
             : 0;
 
+        // Backend bazen 'type' bazen 'event_type' yolluyor olabilir, garantiye alalım
+        final eventType = data['type'] ?? data['event_type'] ?? 'unknown';
+
         final newNotif = NotificationModel(
           id: realId,
           userId: data['user_id'] ?? 0,
-          type: data['event_type'] ?? 'unknown', // Backend'deki modele göre
+          type: eventType,
           title: data['title'] ?? 'Yeni Bildirim',
-          body: data['message'] ?? '',
+          body: data['message'] ?? data['body'] ?? '',
           imageUrl:
-              data['metadata']?['follower_avatar'] ?? '', // Metadata içindeyse
+              data['image_url'] ?? data['metadata']?['follower_avatar'] ?? '',
           data: data['metadata'] ?? {},
           isRead: false,
           createdAt: DateTime.now(),
@@ -143,10 +175,18 @@ class NotificationProvider extends ChangeNotifier {
         _calculateUnreadCount();
         notifyListeners();
 
-        debugPrint("🚀 Canlı Bildirim Eklendi: ${newNotif.title}");
+        debugPrint(
+          "🚀 Canlı Bildirim Eklendi: ${newNotif.title} (Tip: $eventType)",
+        );
+
+        // KRİTİK: Eğer yeni bir takipçi geldiyse, profil sayısındaki rakamı güncellemek için profili tetikle
+        if (eventType == 'new_follower') {
+          debugPrint("👤 Yeni takipçi tespit edildi, profil tazeleniyor...");
+          locator<UserProvider>().fetchUser();
+        }
       }
     } catch (e) {
-      debugPrint("Live Notification Parse Hatası: $e");
+      debugPrint("❌ Live Notification Parse Hatası: $e");
     }
   }
 

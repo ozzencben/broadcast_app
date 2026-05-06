@@ -7,6 +7,9 @@ import 'package:stream_app/data/services/permisson_service.dart';
 import 'package:stream_app/logic/providers/stream_provider.dart';
 import 'package:stream_app/logic/providers/user_provider.dart';
 import 'package:stream_app/logic/wrappers/stream_wrapper.dart';
+import 'package:stream_app/views/follower_ring_screen.dart';
+import 'package:stream_app/views/following_ring_screen.dart';
+import 'package:stream_app/views/screens/profile/edit_profile_screen.dart';
 import 'package:stream_app/views/screens/settings/streamer_profile_settings_screen.dart';
 import 'package:stream_app/views/widgets/grid_painter.dart';
 
@@ -48,153 +51,157 @@ class StreamerProfileScreen extends StatelessWidget {
       ),
       extendBodyBehindAppBar: true,
       body: GridBackground(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 100, 24, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // --- ÜST KISIM: AVATAR VE İSİM ---
-              Row(
-                children: [
-                  _buildProfileAvatar(user, theme),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          displayName,
-                          style: theme.textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          '@${user.username}',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.primaryColor,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // --- BİYO ---
-              if (user.bio != null && user.bio!.isNotEmpty)
-                Text(user.bio!, style: theme.textTheme.bodyMedium),
-              if (user.bio != null && user.bio!.isNotEmpty)
-                const SizedBox(height: 24),
-
-              // --- GERÇEK İSTATİSTİKLER ---
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  // Eğer kullanıcı bir yayıncıysa takipçilerini göster
-                  if (user.isStreamer)
-                    _buildStatItem(
-                      'Followers',
-                      user.followersCount.toString(),
-                      theme,
-                    ),
-
-                  // Eğer normal bir kullanıcıysa kimleri takip ettiğini göster
-                  if (!user.isStreamer)
-                    _buildStatItem(
-                      'Following',
-                      user.followingCount.toString(),
-                      theme,
-                    ),
-
-                  // Şimdilik yayın sayısı mock olarak kalıyor
-                  _buildStatItem('Streams', '86', theme),
-                ],
-              ),
-              const SizedBox(height: 32),
-
-              // --- AKSİYON BUTONLARI ---
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        // İzin servisini çağır
-                        final permissionService = locator<PermissionService>();
-                        final statuses = await permissionService
-                            .requestMultiple([
-                              AppPermission.camera,
-                              AppPermission.microphone,
-                            ]);
-
-                        final allGranted = statuses.values.every(
-                          (isGranted) => isGranted,
-                        );
-
-                        if (!context.mounted) return;
-
-                        if (allGranted) {
-                          // İzinler tamamsa modalı aç
-                          _showGoLiveModal(context);
-                        } else {
-                          // İzin verilmediyse kullanıcıyı uyar
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Yayın için kamera ve mikrofon izni gereklidir.',
-                              ),
+        child: RefreshIndicator(
+          onRefresh: () => userProvider.fetchUser(),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(24, 100, 24, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // --- ÜST KISIM: AVATAR VE İSİM ---
+                Row(
+                  children: [
+                    _buildProfileAvatar(user, theme),
+                    const SizedBox(width: 20),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            displayName,
+                            style: theme.textTheme.headlineMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
                             ),
-                          );
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.accentPurple,
-                        foregroundColor: Colors.white,
+                          ),
+                          Text(
+                            '@${user.username}',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.primaryColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
-                      child: const Text('GO LIVE'),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () {
-                        // TODO: Profil düzenleme sayfasına yönlendirme
-                      },
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.lightBackground,
-                        side: BorderSide(
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.2,
+                  ],
+                ),
+                const SizedBox(height: 24),
+ 
+                // --- BİYO ---
+                if (user.bio != null && user.bio!.isNotEmpty)
+                  Text(user.bio!, style: theme.textTheme.bodyMedium),
+                if (user.bio != null && user.bio!.isNotEmpty)
+                  const SizedBox(height: 24),
+ 
+                // --- GERÇEK İSTATİSTİKLER ---
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    // Takipçiler (Followers)
+                    if (user.isStreamer)
+                      _buildStatItem(
+                        'Followers',
+                        user.followersCount.toString(),
+                        theme,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const FollowersListScreen(),
                           ),
                         ),
                       ),
-                      child: const Text('EDIT'),
+ 
+                    // Takip Edilenler (Following)
+                    if (!user.isStreamer)
+                      _buildStatItem(
+                        'Following',
+                        user.followingCount.toString(),
+                        theme,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const FollowingListScreen(),
+                          ),
+                        ),
+                      ),
+ 
+                    // Yayın Sayısı (Streams)
+                    _buildStatItem(
+                      'Streams',
+                      '86',
+                      theme,
+                      onTap: () {
+                        debugPrint("Streams tıklandı");
+                      },
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 40),
-
-              // --- MEDYA GRID BAŞLIĞI ---
-              Row(
-                children: [
-                  const Icon(Icons.grid_view_rounded, size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    'LATEST CLIPS',
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.2,
+                  ],
+                ),
+                const SizedBox(height: 32),
+ 
+                // --- AKSİYON BUTONLARI ---
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final permissionService = locator<PermissionService>();
+                          final statuses = await permissionService.requestMultiple([
+                            AppPermission.camera,
+                            AppPermission.microphone,
+                          ]);
+                          final allGranted = statuses.values.every((isGranted) => isGranted);
+                          if (!context.mounted) return;
+                          if (allGranted) {
+                            _showGoLiveModal(context);
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Yayın için kamera ve mikrofon izni gereklidir.')),
+                            );
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.accentPurple,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('GO LIVE'),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // --- INSTAGRAM TARZI GRID ---
-              _buildMediaGrid(theme),
-            ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {},
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.lightBackground,
+                          side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.2)),
+                        ),
+                        child: const Text('-'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 40),
+ 
+                // --- MEDYA GRID BAŞLIĞI ---
+                Row(
+                  children: [
+                    const Icon(Icons.grid_view_rounded, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'LATEST CLIPS',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+ 
+                // --- INSTAGRAM TARZI GRID ---
+                _buildMediaGrid(theme),
+              ],
+            ),
           ),
         ),
       ),
@@ -211,48 +218,70 @@ class StreamerProfileScreen extends StatelessWidget {
         user.profileImageUrl != null && user.profileImageUrl!.isNotEmpty;
 
     return Container(
-      width: 90,
-      height: 90,
+      width: 120,
+      height: 120,
       decoration: BoxDecoration(
-        color: theme.primaryColor.withValues(alpha: 0.1),
+        color: theme.primaryColor,
         shape: BoxShape.circle,
-        border: Border.all(color: theme.primaryColor, width: 3),
+        border: Border.all(color: theme.scaffoldBackgroundColor, width: 4),
+        boxShadow: [
+          BoxShadow(
+            color: theme.primaryColor.withValues(alpha: 0.4),
+            blurRadius: 30,
+            offset: const Offset(0, 15),
+          ),
+        ],
+        // Resim varsa arka plana yerleştiriyoruz
         image: hasImage
             ? DecorationImage(
                 image: NetworkImage(user.profileImageUrl!),
-                fit: BoxFit.cover,
+                fit: BoxFit.cover, // Resmi yuvarlağa tam oturtur
               )
             : null,
       ),
       alignment: Alignment.center,
-      child: !hasImage
+      // Sadece resim yoksa baş harfi gösteriyoruz
+      child: (user.profileImageUrl == null || user.profileImageUrl!.isEmpty)
           ? Text(
               initial,
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: theme.primaryColor,
+              style: theme.textTheme.displayLarge?.copyWith(
+                color: Colors.black87,
+                fontSize: 48,
               ),
             )
-          : null,
+          : const SizedBox.shrink(), // Resim varken içini boş bırakır
     );
   }
 
   // İstatistik Öğesi (Takipçi Sayısı vb.)
-  Widget _buildStatItem(String label, String value, ThemeData theme) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: theme.textTheme.headlineMedium?.copyWith(
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
-          ),
+  Widget _buildStatItem(
+    String label,
+    String value,
+    ThemeData theme, {
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12), // Ripple efektinin sınırları
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+          ],
         ),
-        Text(
-          label,
-          style: theme.textTheme.bodyMedium?.copyWith(color: Colors.black54),
-        ),
-      ],
+      ),
     );
   }
 

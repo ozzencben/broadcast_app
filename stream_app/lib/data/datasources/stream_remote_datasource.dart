@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:stream_app/core/constants.dart';
 import 'package:stream_app/data/models/stream/stream_model.dart';
 
 abstract class StreamRemoteDataSource {
@@ -18,7 +19,7 @@ class StreamRemoteDataSourceImpl implements StreamRemoteDataSource {
     int limit = 10,
   }) async {
     final response = await dio.get(
-      '/streams/active',
+      ApiConstants.streams,
       queryParameters: {'skip': skip, 'limit': limit},
     );
     return (response.data as List)
@@ -28,18 +29,21 @@ class StreamRemoteDataSourceImpl implements StreamRemoteDataSource {
 
   @override
   Future<StreamConnectionResponse> startStream(String title) async {
-    final response = await dio.post('/streams/start', data: {'title': title});
+    final response = await dio.post(
+      '${ApiConstants.streams}/start',
+      data: {'title': title},
+    );
     return StreamConnectionResponse.fromJson(response.data);
   }
 
   @override
   Future<StreamConnectionResponse> joinStream(String roomName) async {
-    final response = await dio.get('/streams/$roomName/join');
+    final response = await dio.get('${ApiConstants.streams}/$roomName/join');
     return StreamConnectionResponse.fromJson(response.data);
   }
 
   @override
   Future<void> endStream(String roomName) async {
-    await dio.post('/streams/$roomName/end');
+    await dio.post('${ApiConstants.streams}/$roomName/end');
   }
 }

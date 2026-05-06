@@ -50,12 +50,33 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
 
+    String? genderValue;
+    if (_selectedGender != null) {
+      switch (_selectedGender) {
+        case Gender.male:
+          genderValue = 'male';
+          break;
+        case Gender.female:
+          genderValue = 'female';
+          break;
+        case Gender.other:
+          genderValue = 'other';
+          break;
+        case Gender
+            .preferNotToSay: // Enum isminin preferNotToSay olduğunu varsayıyorum
+          genderValue = 'prefer_not_to_say';
+          break;
+        default:
+          genderValue = 'other';
+      }
+    }
+
     final updateData = {
       'first_name': _firstNameController.text.trim(),
       'last_name': _lastNameController.text.trim(),
       'username': _usernameController.text.trim(),
       'bio': _bioController.text.trim(),
-      'gender': _selectedGender?.name,
+      'gender': genderValue,
       if (_selectedDate != null)
         'birth_date': _selectedDate!.toIso8601String().split('T')[0],
     };
@@ -228,12 +249,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 _buildLabel('Cinsiyet'),
                 _buildShadowWrapper(
                   child: DropdownButtonFormField<Gender>(
-                    value: _selectedGender,
+                    initialValue: _selectedGender,
                     items: Gender.values.map((g) {
-                      return DropdownMenuItem(
-                        value: g,
-                        child: Text(g.name.toUpperCase()),
-                      );
+                      String label;
+                      switch (g) {
+                        case Gender.male:
+                          label = "Erkek";
+                          break;
+                        case Gender.female:
+                          label = "Kadın";
+                          break;
+                        case Gender.other:
+                          label = "Diğer";
+                          break;
+                        case Gender.preferNotToSay:
+                          label = "Belirtmek İstemiyorum";
+                          break;
+                      }
+                      return DropdownMenuItem(value: g, child: Text(label));
                     }).toList(),
                     onChanged: (val) => setState(() => _selectedGender = val),
                     decoration: const InputDecoration(
@@ -257,8 +290,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         firstDate: DateTime(1950),
                         lastDate: DateTime.now(),
                       );
-                      if (picked != null)
+                      if (picked != null) {
                         setState(() => _selectedDate = picked);
+                      }
                     },
                     borderRadius: BorderRadius.circular(100),
                     child: InputDecorator(

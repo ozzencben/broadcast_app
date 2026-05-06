@@ -21,14 +21,13 @@ Bu rapor, projenin mevcut teknik altyapısını analiz eder ve "Minimum Viable P
 ## 2. MVP İçin Eksikler ve Riskler
 
 ### ⚠️ Teknik Riskler
-1.  **IP Adresi Bağımlılığı:** Şu an `192.168.1.107` gibi yerel IP'ler kod içerisinde (özellikle Flutter tarafında) dağınık durumda. Bu, ağ değiştiğinde sistemin çökmesine neden olur.
-2.  **Bağlantı Kopmaları:** İnternet dalgalanmalarında LiveKit veya WebSocket bağlantısı koptuğunda "Reconnecting" durumları UI tarafında yeterince yönetilmiyor.
-3.  **Hata Yönetimi:** API'den dönen hatalar kullanıcıya genellikle teknik mesajlar olarak (veya hiç) yansıtılmıyor.
+1.  **Bağlantı Kopmaları:** İnternet dalgalanmalarında LiveKit veya WebSocket bağlantısı koptuğunda "Reconnecting" durumları UI tarafında yeterince yönetilmiyor.
+2.  **Hata Yönetimi:** API'den dönen hatalar kullanıcıya genellikle teknik mesajlar olarak (veya hiç) yansıtılmıyor.
 
 ### ❌ Eksik Fonksiyonlar
 1.  **Canlı Sohbet (Stream Chat):** Bir yayın uygulamasının kalbi olan anlık mesajlaşma henüz yok.
 2.  **İzleyici Sayısı:** Yayın sırasında kaç kişinin izlediği bilgisi LiveKit webhook'ları üzerinden backend'e geliyor ancak Flutter UI'da anlık güncellenmiyor.
-3.  **Profil Düzenleme:** Kullanıcıların fotoğraf veya biyografi değiştirme kısımları kodda var ancak tam test edilmedi/bağlanmadı.
+
 
 ---
 

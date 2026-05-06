@@ -4,6 +4,7 @@ import 'package:stream_app/core/theme.dart';
 import 'package:stream_app/logic/providers/auth_provider.dart';
 import 'package:stream_app/logic/providers/user_provider.dart';
 import 'package:stream_app/views/screens/auth/login_screen.dart';
+import 'package:stream_app/views/screens/profile/edit_profile_screen.dart';
 import 'package:stream_app/views/widgets/grid_painter.dart';
 
 class StreamerSettingsScreen extends StatefulWidget {
@@ -143,10 +144,15 @@ class _StreamerSettingsScreenState extends State<StreamerSettingsScreen> {
                 // --- Alt Menü Öğeleri ---
                 _buildActionItem(
                   theme: theme,
-                  title: 'Show Stream Key',
+                  title: 'Profil Ayarları',
                   icon: Icons.key_rounded,
                   onTap: () {
-                    // TODO: OBS Stream Key gösterme modalı
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const EditProfileScreen(),
+                      ),
+                    );
                   },
                 ),
                 const SizedBox(height: 12),

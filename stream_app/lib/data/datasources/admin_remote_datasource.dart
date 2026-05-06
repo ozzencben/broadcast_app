@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:stream_app/core/constants.dart';
 import 'package:stream_app/data/models/user/user_model.dart';
 
 abstract class AdminRemoteDataSource {
@@ -15,7 +16,7 @@ class AdminRemoteDataSourceImpl implements AdminRemoteDataSource {
   @override
   Future<List<UserModel>> getAllUsers({int skip = 0, int limit = 100}) async {
     final response = await dio.get(
-      '/admin/users',
+      ApiConstants.admin,
       queryParameters: {'skip': skip, 'limit': limit},
     );
     return (response.data as List)
@@ -25,19 +26,19 @@ class AdminRemoteDataSourceImpl implements AdminRemoteDataSource {
 
   @override
   Future<UserModel> getUserDetails(int userId) async {
-    final response = await dio.get('/admin/users/$userId');
+    final response = await dio.get('${ApiConstants.admin}/$userId');
     return UserModel.fromJson(response.data);
   }
 
   @override
   Future<UserModel> promoteToStreamer(int userId) async {
-    final response = await dio.patch('/admin/users/$userId/promote-streamer');
+    final response = await dio.patch('${ApiConstants.admin}/$userId/promote-streamer');
     return UserModel.fromJson(response.data);
   }
 
   @override
   Future<UserModel> toggleUserStatus(int userId) async {
-    final response = await dio.patch('/admin/users/$userId/toggle-status');
+    final response = await dio.patch('${ApiConstants.admin}/$userId/toggle-status');
     return UserModel.fromJson(response.data);
   }
 }

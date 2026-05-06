@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:stream_app/core/constants.dart';
 import '../models/auth/auth_request_model.dart';
 import '../models/token/token_response_model.dart';
 
@@ -21,7 +22,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     });
 
     final response = await dio.post(
-      '/auth/login',
+      ApiConstants.login,
       data: formData,
       options: Options(
         // Header'da içeriğin form verisi olduğunu belirtiyoruz
@@ -34,7 +35,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
   @override
   Future<TokenResponseModel> register(AuthRequestModel request) async {
-    final response = await dio.post('/auth/register', data: request.toJson());
+    final response = await dio.post(
+      ApiConstants.register,
+      data: request.toJson(),
+    );
     return TokenResponseModel.fromJson(response.data);
   }
 }

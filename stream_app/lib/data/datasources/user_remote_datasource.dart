@@ -1,6 +1,7 @@
 import 'dart:core';
 
 import 'package:dio/dio.dart';
+import 'package:stream_app/core/constants.dart';
 import '../models/user/user_model.dart';
 
 abstract class UserRemoteDataSource {
@@ -28,19 +29,19 @@ class UserRemoteDataSourceImpl implements UserRemoteDataSource {
 
   @override
   Future<UserModel> getMe() async {
-    final response = await dio.get('/users/me');
+    final response = await dio.get('${ApiConstants.users}/me');
     return UserModel.fromJson(response.data);
   }
 
   @override
   Future<UserModel> updateMe(Map<String, dynamic> data) async {
-    final response = await dio.patch('/users/me', data: data);
+    final response = await dio.patch('${ApiConstants.users}/me', data: data);
     return UserModel.fromJson(response.data);
   }
 
   @override
   Future<void> deactivateMe() async {
-    await dio.delete('/users/me');
+    await dio.delete('${ApiConstants.users}/me');
   }
 
   @override
@@ -51,7 +52,7 @@ class UserRemoteDataSourceImpl implements UserRemoteDataSource {
     });
 
     final response = await dio.post(
-      '/users/me/image',
+      '${ApiConstants.users}/me/image',
       data: formData,
       options: Options(contentType: 'multipart/form-data'),
     );
@@ -61,14 +62,14 @@ class UserRemoteDataSourceImpl implements UserRemoteDataSource {
 
   @override
   Future<UserModel> getUserById(int userId) async {
-    final response = await dio.get('/users/$userId');
+    final response = await dio.get('${ApiConstants.users}/$userId');
     return UserModel.fromJson(response.data);
   }
 
   @override
   Future<List<UserModel>> searchUsers(String query) async {
     final response = await dio.get(
-      '/users/search',
+      '${ApiConstants.users}/search',
       queryParameters: {'q': query},
     );
     return (response.data as List)
@@ -80,17 +81,19 @@ class UserRemoteDataSourceImpl implements UserRemoteDataSource {
 
   @override
   Future<void> followStreamer(int streamerId) async {
-    await dio.post('/users/$streamerId/follow');
+    await dio.post('${ApiConstants.users}/$streamerId/follow');
   }
 
   @override
   Future<void> unfollowStreamer(int streamerId) async {
-    await dio.post('/users/$streamerId/unfollow');
+    await dio.post('${ApiConstants.users}/$streamerId/unfollow');
   }
 
   @override
   Future<List<UserModel>> getFollowerList(int streamerId) async {
-    final response = await dio.get('/users/$streamerId/followers');
+    final response = await dio.get(
+      '${ApiConstants.users}/$streamerId/followers',
+    );
     return (response.data as List)
         .map((json) => UserModel.fromJson(json))
         .toList();
@@ -98,7 +101,7 @@ class UserRemoteDataSourceImpl implements UserRemoteDataSource {
 
   @override
   Future<List<UserModel>> getFollowingList(int userId) async {
-    final response = await dio.get('/users/$userId/following');
+    final response = await dio.get('${ApiConstants.users}/$userId/following');
     return (response.data as List)
         .map((json) => UserModel.fromJson(json))
         .toList();
@@ -106,6 +109,6 @@ class UserRemoteDataSourceImpl implements UserRemoteDataSource {
 
   @override
   Future<void> registerDevice(Map<String, dynamic> deviceData) async {
-    await dio.post('/users/me/devices', data: deviceData);
+    await dio.post('${ApiConstants.users}/me/devices', data: deviceData);
   }
 }

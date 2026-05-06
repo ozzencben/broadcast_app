@@ -42,10 +42,14 @@ class ConnectionManager:
         if websocket:
             try:
                 await websocket.send_json(message)
+                print(f"✅ WS: User {user_id} için kişisel mesaj gönderildi: {message['type']}")
                 return True
-            except:
+            except Exception as e:
+                print(f"❌ WS: User {user_id} için mesaj gönderilemedi: {str(e)}")
                 # Bağlantı sorunluysa temizle
                 self.disconnect(websocket, user_id)
+        else:
+            print(f"⚠️ WS: User {user_id} bağlı değil, mesaj gönderilemedi.")
         return False
 
 # Singleton örneği

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:livekit_client/livekit_client.dart'; // LİVEKİT IMPORTU
+import 'package:stream_app/core/constants.dart';
 import 'package:stream_app/core/locator.dart';
 import 'package:stream_app/data/models/stream/stream_model.dart';
 import 'package:stream_app/data/services/permisson_service.dart';
@@ -13,12 +14,11 @@ class LiveStreamProvider extends ChangeNotifier {
     : _repository = repository;
 
   // --- 1. HABERLEŞME HATTI (FastAPI WebSocket) ---
-  final String _wsDiscoveryUrl =
-      'ws://192.168.1.107:8000/api/websocket/streams';
+  final String _wsDiscoveryUrl = '${ApiConstants.wsBaseUrl}/streams';
   WebSocketChannel? _channel;
 
   // --- 2. GÖRÜNTÜ HATTI (LiveKit Server) ---
-  final String _livekitUrl = 'ws://192.168.1.107:7880';
+  final String _livekitUrl = ApiConstants.liveKitBaseUrl;
   Room? _room;
   Room? get room => _room;
 

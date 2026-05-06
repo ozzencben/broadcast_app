@@ -1,14 +1,13 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:stream_app/core/constants.dart';
 
 class AuthInterceptor extends Interceptor {
   final Dio dio;
   final FlutterSecureStorage secureStorage;
 
   // Refresh isteği için temiz (interceptor'suz) bir Dio instance'ı
-  final Dio _tokenDio = Dio(
-    BaseOptions(baseUrl: 'http://192.168.1.107:8000/api'),
-  );
+  final Dio _tokenDio = Dio(BaseOptions(baseUrl: ApiConstants.baseUrl));
 
   AuthInterceptor(this.dio, this.secureStorage);
 
@@ -18,8 +17,8 @@ class AuthInterceptor extends Interceptor {
     RequestInterceptorHandler handler,
   ) async {
     // Login ve Register endpoint'leri hariç tüm isteklere token ekle
-    if (!options.path.contains('/auth/login') &&
-        !options.path.contains('/auth/register')) {
+    if (!options.path.contains(ApiConstants.login) &&
+        !options.path.contains(ApiConstants.register)) {
       final accessToken = await secureStorage.read(key: 'access_token');
       if (accessToken != null) {
         options.headers['Authorization'] = 'Bearer $accessToken';
@@ -32,7 +31,7 @@ class AuthInterceptor extends Interceptor {
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     // 1. Giriş veya Kayıt denemesi 401 almışsa, refresh yapmak anlamsızdır (Şifre yanlıştır)
     final String path = err.requestOptions.path;
-    if (path.contains('/auth/login') || path.contains('/auth/register')) {
+    if (path.contains(ApiConstants.login) || path.contains(ApiConstants.register)) {
       return super.onError(err, handler);
     }
 
@@ -43,14 +42,14 @@ class AuthInterceptor extends Interceptor {
       if (refreshToken != null) {
         try {
           // Refresh isteğinin kendisi 401 alırsa sonsuz döngüye girmemek için check
-          if (path.contains('/auth/refresh')) {
+          if (path.contains(ApiConstants.refresh)) {
             await secureStorage.deleteAll();
             return super.onError(err, handler);
           }
 
           // Backend'den yeni tokenları iste
           final response = await _tokenDio.post(
-            '/auth/refresh',
+            ApiConstants.refresh,
             data: {'refresh_token': refreshToken},
           );
 

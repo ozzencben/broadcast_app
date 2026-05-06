@@ -94,6 +94,10 @@ class UserService:
         updated_user = await self.user_repo.update(
             id=current_user.id, obj_data=update_data
         )
+
+        await self.session.commit()
+        await self.session.refresh(updated_user)
+
         return updated_user
 
     async def update_profile_image(self, user_id: int, file: UploadFile, background_tasks: BackgroundTasks):
@@ -122,11 +126,14 @@ class UserService:
             user_id, 
             {"profile_image_url": new_url}
         )
+
+        await self.session.commit()
+        await self.session.refresh(updated_user)
         
         # 3. DB güncellendiyse, eski resmi silmeyi arka plana at (Veri kaybını önler)
         if old_image_url:
             background_tasks.add_task(CloudinaryService.delete_image, old_image_url)
-            
+
         return updated_user
 
     async def deactivate_account(self, current_user: User) -> dict:
