@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:stream_app/core/locator.dart';
 import 'package:stream_app/data/services/device_info_service.dart';
+import 'package:stream_app/logic/providers/notification_provider.dart';
 import 'package:stream_app/logic/providers/stream_provider.dart';
 import 'package:stream_app/logic/repositories/auth_repository_impl.dart';
 import 'package:stream_app/logic/repositories/user_repository_impl.dart';
@@ -72,6 +73,14 @@ class AuthProvider extends ChangeNotifier {
           _currentUser = user;
           // Oturum geçerliyse cihazı arka planda senkronize et
           await _syncDeviceToken();
+
+          try {
+            final notifProvider = locator<NotificationProvider>();
+            await notifProvider.fetchHistory(isRefresh: true); // Geçmişi çek
+            notifProvider.connectWebSocket(user.id); // Canlı hattı aç
+          } catch (e) {
+            debugPrint("AutoLogin Notification Init Hatası: $e");
+          }
         },
       );
     } finally {
@@ -94,7 +103,16 @@ class AuthProvider extends ChangeNotifier {
       },
       (successResponse) async {
         _currentUser = successResponse.user;
-        await _syncDeviceToken(); // Login sonrası cihazı kaydet
+        await _syncDeviceToken();
+
+        try {
+          final notifProvider = locator<NotificationProvider>();
+          await notifProvider.fetchHistory(isRefresh: true);
+          notifProvider.connectWebSocket(successResponse.user.id);
+        } catch (e) {
+          debugPrint("Login Notification Init Hatası: $e");
+        }
+
         _setLoading(false);
         return true;
       },
@@ -116,7 +134,16 @@ class AuthProvider extends ChangeNotifier {
       },
       (successResponse) async {
         _currentUser = successResponse.user;
-        await _syncDeviceToken(); // Register sonrası cihazı kaydet
+        await _syncDeviceToken();
+
+        try {
+          final notifProvider = locator<NotificationProvider>();
+          await notifProvider.fetchHistory(isRefresh: true);
+          notifProvider.connectWebSocket(successResponse.user.id);
+        } catch (e) {
+          debugPrint("Register Notification Init Hatası: $e");
+        }
+
         _setLoading(false);
         return true;
       },
@@ -129,6 +156,8 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       locator<LiveStreamProvider>().disconnectWebSocket();
+
+      locator<NotificationProvider>().disconnectWebSocket();
     } catch (e) {
       debugPrint("Logout sırasında WebSocket kapatılamadı: $e");
     }

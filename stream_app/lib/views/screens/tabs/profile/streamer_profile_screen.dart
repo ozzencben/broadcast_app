@@ -120,11 +120,14 @@ class StreamerProfileScreen extends StatelessWidget {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () async {
-                        final permissonServie = locator<PermissionService>();
-                        final statuses = await permissonServie.requestMultiple([
-                          AppPermission.camera,
-                          AppPermission.microphone,
-                        ]);
+                        // İzin servisini çağır
+                        final permissionService = locator<PermissionService>();
+                        final statuses = await permissionService
+                            .requestMultiple([
+                              AppPermission.camera,
+                              AppPermission.microphone,
+                            ]);
+
                         final allGranted = statuses.values.every(
                           (isGranted) => isGranted,
                         );
@@ -132,8 +135,10 @@ class StreamerProfileScreen extends StatelessWidget {
                         if (!context.mounted) return;
 
                         if (allGranted) {
+                          // İzinler tamamsa modalı aç
                           _showGoLiveModal(context);
                         } else {
+                          // İzin verilmediyse kullanıcıyı uyar
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text(
@@ -336,21 +341,16 @@ class StreamerProfileScreen extends StatelessWidget {
                     final title = titleController.text.trim();
                     if (title.isEmpty) return;
 
-                    // 1. KRİTİK DÜZELTME: Provider'ı ve diğer context bazlı işlemleri
-                    // modalı kapatmadan ve async boşluğa düşmeden ÖNCE değişkene alıyoruz.
                     final provider = context.read<LiveStreamProvider>();
-
-                    // 2. Artık modalı güvenle kapatabiliriz.
                     Navigator.pop(modalContext);
 
-                    // 3. API isteğini atıyoruz.
-                    final success = await provider.startStream(title);
+                    // Doğrudan LiveKit yetkili akışı çağırıyoruz
+                    await provider.handleStartStreamFlow(title);
 
-                    // 4. Ana sayfa (StreamerProfileScreen) hala aktif mi kontrol ediyoruz.
                     if (!context.mounted) return;
 
-                    if (success && provider.currentConnection != null) {
-                      // API başarılı, Token ve RoomName elimizde. Uçuşa geç!
+                    // Eğer connection null değilse yayın başarıyla açılmış ve odaya girilmiştir.
+                    if (provider.currentConnection != null) {
                       final roomName =
                           provider.currentConnection!.stream.roomName;
 
@@ -362,9 +362,9 @@ class StreamerProfileScreen extends StatelessWidget {
                       );
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
+                        SnackBar(
                           content: Text(
-                            'Yayın başlatılamadı. Lütfen tekrar dene.',
+                            provider.errorMessage ?? 'Yayın başlatılamadı.',
                           ),
                         ),
                       );

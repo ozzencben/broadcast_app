@@ -24,7 +24,7 @@ android {
     defaultConfig {
         applicationId = "com.example.stream_app"
         // Ensure minSdk is at least 21 for MultiDex and Desugaring stability
-        minSdk = flutter.minSdkVersion
+        minSdk = 24
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

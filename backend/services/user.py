@@ -17,6 +17,7 @@ from core.exceptions import (
 )
 from schemas.notification import NotificationCreate, NotificationType
 from services.notifications import NotificationService
+from core.websocket_manager import manager
 
 
 class UserService:
@@ -181,6 +182,14 @@ class UserService:
         event_data = notif_payload.model_dump()
         event_data["id"] = notification.id
         await self.notification_service.dispatch_to_worker(event_data)
+
+        await manager.send_personal_message(
+            message={
+                "type": "NEW_NOTIFICATION",
+                "data": event_data
+            },
+            user_id=streamer.id
+        )
 
         return {"message": f"'{streamer.username}' başarıyla takip edildi."}
 

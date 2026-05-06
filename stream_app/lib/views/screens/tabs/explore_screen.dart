@@ -96,12 +96,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
         context,
         MaterialPageRoute(builder: (_) => StreamWrapper(roomName: roomName)),
       );
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Yayına katılamadınız. Yayın bitmiş olabilir.'),
-        ),
-      );
     }
   }
 

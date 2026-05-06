@@ -21,10 +21,15 @@ class _NotificationScreenState extends State<NotificationScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    
-    // Sayfa açıldığında bildirimleri sıfırdan çek
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<NotificationProvider>().fetchHistory(isRefresh: true);
+      final provider = context.read<NotificationProvider>();
+
+      // SADECE LİSTE BOŞSA API'DEN ÇEK!
+      // Böylece WebSocket'ten gelen anlık veriyi ekrandan silmemiş oluruz.
+      if (provider.notifications.isEmpty) {
+        provider.fetchHistory(isRefresh: true);
+      }
     });
   }
 
@@ -36,7 +41,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   void _onScroll() {
     // Liste sonuna 200 piksel kala yeni verileri çek (Pagination)
-    if (_scrollController.position.pixels >= 
+    if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
       context.read<NotificationProvider>().fetchHistory();
     }
@@ -95,7 +100,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
             child: ListView.separated(
               controller: _scrollController,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              itemCount: provider.notifications.length + (provider.hasMoreData ? 1 : 0),
+              itemCount:
+                  provider.notifications.length +
+                  (provider.hasMoreData ? 1 : 0),
               separatorBuilder: (context, index) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 // Pagination yükleme indikatörü
@@ -118,8 +125,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   // Okunmamış veya Okunmuş Bildirim Kartı
   Widget _buildNotificationCard(
-    BuildContext context, 
-    NotificationModel notification, 
+    BuildContext context,
+    NotificationModel notification,
     ThemeData theme,
   ) {
     final isUnread = !notification.isRead;
@@ -130,20 +137,20 @@ class _NotificationScreenState extends State<NotificationScreen> {
         if (isUnread) {
           context.read<NotificationProvider>().markAsRead(notification.id);
         }
-        
+
         // TODO: notification.data içeriğine göre (örn: type == 'follow') ilgili profile git
-        // Navigator.pushNamed(...) 
+        // Navigator.pushNamed(...)
       },
       borderRadius: BorderRadius.circular(24),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           // Okunmamışsa yeşilimsi/mor hafif transparan bir arkaplan ver
-          color: isUnread 
-              ? AppTheme.primaryGreen.withValues(alpha: 0.1) 
+          color: isUnread
+              ? AppTheme.primaryGreen.withValues(alpha: 0.1)
               : Colors.white,
           borderRadius: BorderRadius.circular(24),
-          border: isUnread 
+          border: isUnread
               ? Border.all(color: AppTheme.primaryGreen.withValues(alpha: 0.3))
               : Border.all(color: Colors.transparent),
           boxShadow: [
@@ -163,18 +170,22 @@ class _NotificationScreenState extends State<NotificationScreen> {
               height: 50,
               width: 50,
               decoration: BoxDecoration(
-                color: isUnread 
-                    ? AppTheme.primaryGreen 
+                color: isUnread
+                    ? AppTheme.primaryGreen
                     : theme.colorScheme.onSurface.withValues(alpha: 0.05),
                 shape: BoxShape.circle,
-                image: notification.imageUrl != null && notification.imageUrl!.isNotEmpty
+                image:
+                    notification.imageUrl != null &&
+                        notification.imageUrl!.isNotEmpty
                     ? DecorationImage(
                         image: NetworkImage(notification.imageUrl!),
                         fit: BoxFit.cover,
                       )
                     : null,
               ),
-              child: notification.imageUrl == null || notification.imageUrl!.isEmpty
+              child:
+                  notification.imageUrl == null ||
+                      notification.imageUrl!.isEmpty
                   ? Icon(
                       _getIconForType(notification.type),
                       color: isUnread ? Colors.black87 : Colors.black54,
@@ -182,7 +193,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   : null,
             ),
             const SizedBox(width: 16),
-            
+
             // Metin ve Tarih Alanı
             Expanded(
               child: Column(
@@ -195,7 +206,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
                         child: Text(
                           notification.title,
                           style: theme.textTheme.bodyLarge?.copyWith(
-                            fontWeight: isUnread ? FontWeight.bold : FontWeight.w600,
+                            fontWeight: isUnread
+                                ? FontWeight.bold
+                                : FontWeight.w600,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,

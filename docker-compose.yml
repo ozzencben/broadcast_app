@@ -53,7 +53,8 @@ services:
 
   livekit:
     image: livekit/livekit-server:latest
-    command: --config /livekit.yaml
+    # BÜYÜ BURADA: IP adresini YAML'a değil, direkt komut satırına parametre olarak verdik
+    command: --config /livekit.yaml --node-ip=192.168.1.107
     volumes:
       - ./backend/livekit.yaml:/livekit.yaml:ro
     environment:

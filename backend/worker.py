@@ -25,6 +25,7 @@ async def notify_user_job(ctx: Dict[str, Any], event_dict: Dict[str, Any]) -> No
         if not tokens:
             return
 
+        # SADECE FIREBASE İŞLEMİ BURADA YAPILIR
         response = await firebase_service.send_multicast(event, tokens)
         
         # Hatalı tokenların tespiti ve temizliği

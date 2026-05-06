@@ -1,6 +1,6 @@
 import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
+import 'package:livekit_client/livekit_client.dart'; // LİVEKİT IMPORTU
 import 'package:stream_app/core/locator.dart';
 import 'package:stream_app/data/models/stream/stream_model.dart';
 import 'package:stream_app/data/services/permisson_service.dart';
@@ -12,7 +12,15 @@ class LiveStreamProvider extends ChangeNotifier {
   LiveStreamProvider({required StreamRepository repository})
     : _repository = repository;
 
+  // --- 1. HABERLEŞME HATTI (FastAPI WebSocket) ---
+  final String _wsDiscoveryUrl =
+      'ws://192.168.1.107:8000/api/websocket/streams';
   WebSocketChannel? _channel;
+
+  // --- 2. GÖRÜNTÜ HATTI (LiveKit Server) ---
+  final String _livekitUrl = 'ws://192.168.1.107:7880';
+  Room? _room;
+  Room? get room => _room;
 
   // Aktif yayınların listesi
   List<StreamModel> _activeStreams = [];
@@ -34,15 +42,16 @@ class LiveStreamProvider extends ChangeNotifier {
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
+  // =========================================================================
+  // 1. WEBSOCKET (SİNYALİZASYON) YÖNETİMİ
+  // =========================================================================
+
   /// WebSocket bağlantısını başlatır ve dinlemeye geçer
   void connectWebSocket() {
-    // Eğer zaten bağlıysa tekrar bağlanma
     if (_channel != null) return;
 
     try {
-      // Kendi lokal IP adresini buraya yaz (Örn: 192.168.1.107)
-      // TODO: ileride burası constant olarak ayarlanmalı (url)
-      final wsUrl = Uri.parse('ws://192.168.1.107:8000/api/websocket/streams');
+      final wsUrl = Uri.parse(_wsDiscoveryUrl);
       _channel = WebSocketChannel.connect(wsUrl);
 
       debugPrint("🔌 WebSocket bağlantısı kuruluyor...");
@@ -53,21 +62,17 @@ class LiveStreamProvider extends ChangeNotifier {
           final data = jsonDecode(message);
 
           if (data['type'] == 'NEW_STREAM_STARTED') {
-            // Yeni yayın başladıysa listeyi baştan çek (En garantili yöntem)
             debugPrint("🟢 Yeni yayın tespit edildi, liste yenileniyor!");
             fetchActiveStreams(isRefresh: true);
           } else if (data['type'] == 'STREAM_ENDED') {
-            // Yayın bittiyse sadece o yayını listeden silip UI'ı güncelle
             final roomName = data['room_name'];
             debugPrint("🔴 Yayın bitti: $roomName. Listeden çıkarılıyor.");
             _activeStreams.removeWhere((s) => s.roomName == roomName);
             notifyListeners();
 
-            // 2. EĞER izleyici şu an bu yayının içindeyse bir sinyal gönder
             if (_currentConnection?.stream.roomName == roomName) {
-              // İzleyiciyi dışarı atmak için bir hata mesajı set edebiliriz
               _errorMessage = "This stream has ended by the host.";
-              _currentConnection = null; // Bağlantı verisini temizle
+              _currentConnection = null;
               notifyListeners();
             }
           }
@@ -79,7 +84,6 @@ class LiveStreamProvider extends ChangeNotifier {
         onDone: () {
           debugPrint("🛑 WebSocket Bağlantısı Koptu.");
           _channel = null;
-          // İleride buraya "otomatik yeniden bağlanma" (reconnect) mantığı eklenebilir
         },
       );
     } catch (e) {
@@ -87,7 +91,6 @@ class LiveStreamProvider extends ChangeNotifier {
     }
   }
 
-  /// WebSocket bağlantısını manuel olarak kapatır
   void disconnectWebSocket() {
     if (_channel != null) {
       _channel!.sink.close();
@@ -96,12 +99,68 @@ class LiveStreamProvider extends ChangeNotifier {
     }
   }
 
-  /// Provider hafızadan silinirken sızıntı (memory leak) olmasın diye bağlantıyı kesiyoruz
-  @override
-  void dispose() {
-    disconnectWebSocket();
-    super.dispose();
+  // =========================================================================
+  // 2. LİVEKİT (GÖRÜNTÜ VE SES) YÖNETİMİ
+  // =========================================================================
+
+  /// LiveKit odasına bağlanma işlemini yapan özel yardımcı metod
+  Future<bool> _connectToLiveKitRoom(String token) async {
+    try {
+      if (_room != null) {
+        await _room!.disconnect();
+      }
+
+      _room = Room();
+
+      // Bağlantı denemesine timeout ve zayıf ağ (Low-End) optimizasyonları ekliyoruz
+      await _room!
+          .connect(
+            _livekitUrl,
+            token,
+            roomOptions: const RoomOptions(
+              // Simulcast'i KAPATTIK (Zayıf ağlarda Simulcast cihazı boğar)
+              defaultVideoPublishOptions: VideoPublishOptions(simulcast: false),
+              // Cihazın kendi internetine göre video almasını sağlayan Dynacast'i açtık
+              dynacast: true,
+            ),
+            connectOptions: const ConnectOptions(
+              // Wi-Fi kopmalarına karşı WebRTC'nin hemen pes etmesini engelle
+              autoSubscribe: true,
+            ),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      debugPrint("✅ LiveKit Odasına Bağlanıldı!");
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint("❌ LiveKit Bağlantı Hatası: $e");
+      _errorMessage = "Görüntü sunucusuna bağlanılamadı. (Hata: $e)";
+      notifyListeners();
+      return false;
+    }
   }
+
+  /// Mevcut LiveKit odasından çıkma metodu (İzleyici çıkar veya yayıncı yayını bitirirse)
+  Future<void> leaveCurrentRoom() async {
+    if (_room != null) {
+      try {
+        // Disconnect bazen timeout'a düşebiliyor, bunu yakalayıp devam etmeliyiz
+        await _room!.disconnect().timeout(const Duration(seconds: 3));
+      } catch (e) {
+        debugPrint("⚠️ LiveKit Odasından ayrılırken hata/timeout: $e");
+      } finally {
+        _room = null;
+        debugPrint("🛑 LiveKit Odasından Çıkıldı.");
+      }
+    }
+    _currentConnection = null;
+    notifyListeners();
+  }
+
+  // =========================================================================
+  // 3. API VE İŞ MANTIĞI KATI (BUSINESS LOGIC)
+  // =========================================================================
 
   /// Aktif yayınları sayfalama (pagination) ile çeker
   Future<void> fetchActiveStreams({bool isRefresh = false}) async {
@@ -134,7 +193,6 @@ class LiveStreamProvider extends ChangeNotifier {
         if (newStreams.length < _limit) _hasMoreData = false;
 
         for (var newStream in newStreams) {
-          // Eğer id zaten listede varsa ekleme (Duplikasyon önleme)
           bool exists = _activeStreams.any((s) => s.id == newStream.id);
           if (!exists) {
             _activeStreams.add(newStream);
@@ -157,14 +215,18 @@ class LiveStreamProvider extends ChangeNotifier {
     final result = await _repository.startStream(title);
     bool success = false;
 
-    result.fold(
-      (failure) => debugPrint("Start Stream Error: ${failure.message}"),
-      (connectionResponse) {
+    // Fold içindeki callback asenkron olduğu için await ekliyoruz
+    await result.fold(
+      (failure) async {
+        debugPrint("Start Stream Error: ${failure.message}");
+        _errorMessage = failure.message;
+      },
+      (connectionResponse) async {
         _currentConnection = connectionResponse;
-
-        // Optimistik olarak başlattığımız yayını listeye en başa ekleyebiliriz
         _activeStreams.insert(0, connectionResponse.stream);
-        success = true;
+
+        // Backend'den token geldi, LiveKit'e bağlan!
+        success = await _connectToLiveKitRoom(connectionResponse.token);
       },
     );
 
@@ -181,11 +243,16 @@ class LiveStreamProvider extends ChangeNotifier {
     final result = await _repository.joinStream(roomName);
     bool success = false;
 
-    result.fold(
-      (failure) => debugPrint("Join Stream Error: ${failure.message}"),
-      (connectionResponse) {
+    await result.fold(
+      (failure) async {
+        debugPrint("Join Stream Error: ${failure.message}");
+        _errorMessage = failure.message;
+      },
+      (connectionResponse) async {
         _currentConnection = connectionResponse;
-        success = true;
+
+        // İzleyici olarak LiveKit odasına bağlan!
+        success = await _connectToLiveKitRoom(connectionResponse.token);
       },
     );
 
@@ -194,52 +261,76 @@ class LiveStreamProvider extends ChangeNotifier {
     return success;
   }
 
+  /// YAYINCI AKIŞI: İzinleri alır, yayını başlatır ve kamerayı açar
   Future<void> handleStartStreamFlow(String title) async {
     final permissionService = locator<PermissionService>();
 
-    // 1. İzinleri Kontrol Et ve İste
+    // 1. İzinleri al
     final statuses = await permissionService.requestMultiple([
       AppPermission.camera,
       AppPermission.microphone,
     ]);
 
-    // 2. İzinlerin durumunu kontrol et
     final allGranted = statuses.values.every((isGranted) => isGranted);
 
     if (allGranted) {
       debugPrint("✅ Tüm izinler tamam. Yayın başlatılıyor...");
 
-      // 3. Gerçek API çağrısını yap
+      // 2. Backend ve LiveKit bağlantısını kur
       final success = await startStream(title);
 
-      if (success) {
-        debugPrint(
-          "🚀 Yayın başarıyla açıldı! Token: ${currentConnection?.token}",
+      if (success && _room != null) {
+        debugPrint("🚀 LiveKit odasına girildi, medya kanalları açılıyor...");
+
+        // Mikrofonu aktif et
+        await _room!.localParticipant?.setMicrophoneEnabled(true);
+
+        // KAMERA AYARLARI: Eski cihazlarda (S9 vb) uyumluluk için h480 veya h360 daha güvenlidir.
+        // Çözünürlüğü ve Bitrate'i en dibe çektik (Zayıf ağ senaryosu)
+        await _room!.localParticipant?.setCameraEnabled(
+          true,
+          cameraCaptureOptions: const CameraCaptureOptions(
+            cameraPosition: CameraPosition.front,
+            params: VideoParameters(
+              dimensions: VideoDimensions(320, 240),
+              encoding: VideoEncoding(
+                maxBitrate:
+                    150000, // Sadece 150 kbps! (Zayıf Wi-Fi bile kaldırır)
+                maxFramerate: 15, // FPS'i düşürerek işlemciyi rahatlattık
+              ),
+            ),
+          ),
         );
       }
     } else {
-      // 4. İzinlerden biri veya ikisi reddedildiyse kullanıcıyı uyar
       debugPrint("❌ Kamera veya Mikrofon izni reddedildi.");
-      // Burada bir UI uyarısı fırlatabilirsin.
+      _errorMessage =
+          "Yayın başlatmak için kamera ve mikrofon izni gereklidir.";
+      notifyListeners();
     }
   }
 
   /// Yayını sonlandırır
   Future<void> endStream(String roomName) async {
-    // 1. Local (Optimistik) Güncelleme: Yayını hemen listeden uçur
     _activeStreams.removeWhere((stream) => stream.roomName == roomName);
 
-    // Eğer bitirdiğimiz yayın şu an aktif olarak bulunduğumuz yayınsa veriyi temizle
     if (_currentConnection?.stream.roomName == roomName) {
-      _currentConnection = null;
+      await leaveCurrentRoom(); // Odadan çık ve veriyi temizle
+    } else {
+      notifyListeners();
     }
-    notifyListeners();
 
-    // 2. Backend Güncellemesi
     final result = await _repository.endStream(roomName);
     result.fold(
       (failure) => debugPrint("End Stream Error: ${failure.message}"),
-      (_) => debugPrint("Stream successfully ended."),
+      (_) => debugPrint("Stream successfully ended on backend."),
     );
+  }
+
+  @override
+  void dispose() {
+    disconnectWebSocket();
+    _room?.disconnect(); // Provider ölürse kamerayı serbest bırak
+    super.dispose();
   }
 }

@@ -1,8 +1,7 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter/material.dart'; // Navigation key için gerekli
+import 'package:flutter/material.dart'; 
 import 'package:stream_app/core/locator.dart';
-import 'package:stream_app/logic/providers/notification_provider.dart';
 import 'package:stream_app/data/services/device_info_service.dart';
 import 'package:stream_app/logic/repositories/user_repository_impl.dart';
 
@@ -59,10 +58,10 @@ class NotificationService {
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       debugPrint("Foreground Message Received: ${message.messageId}");
 
-      // Provider'ı güncelle (Inbox listesine anlık ekle)
-      locator<NotificationProvider>().addFCMNotification(message);
-
-      // Yerel bildirimi göster
+      // DİKKAT: Artık provider.addFCMNotification ÇAĞIRMIYORUZ!
+      // Çünkü listeye ekleme işini anlık olarak WebSocket yapacak.
+      
+      // Sadece ekranın üstünden süzülen yerel bildirimi (pop-up) gösteriyoruz
       _showLocalNotification(message, channel);
     });
 
